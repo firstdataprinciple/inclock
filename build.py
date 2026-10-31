@@ -465,6 +465,7 @@ def main():
         open(f"{OUT}/{f}", "w", encoding="utf-8").write(h)
     open(f"{OUT}/assets/style.css", "w").write(CSS.strip() + "\n")
     open(f"{OUT}/assets/main.js", "w").write(JS)
+    open(f"{OUT}/CNAME", "w").write("inclock.in\n")  # GitHub Pages custom domain
     print(f"Built {len(pages)} pages in repo root")
 
 
