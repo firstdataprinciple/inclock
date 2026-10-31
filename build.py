@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
-"""InClock static site generator. Run: python3 build.py  -> writes ./site/"""
+"""InClock static site generator. Run: python3 build.py  -> writes pages to the repo root"""
 import os, shutil, html
 
-OUT = "site"
+OUT = "."
 E = html.escape
 
 NAV = [
@@ -454,8 +454,7 @@ JS = """(function(){
 
 
 def main():
-    shutil.rmtree(OUT, ignore_errors=True)
-    os.makedirs(f"{OUT}/assets")
+    os.makedirs(f"{OUT}/assets", exist_ok=True)
     pages = {"index.html": build_home(), "services.html": build_services(), "industries.html": build_industries(),
              "case-studies.html": build_cases(), "how-we-work.html": build_how(), "about.html": build_about(),
              "blog.html": build_blog(), "careers.html": build_careers(), "contact.html": build_contact(),
@@ -466,7 +465,7 @@ def main():
         open(f"{OUT}/{f}", "w", encoding="utf-8").write(h)
     open(f"{OUT}/assets/style.css", "w").write(CSS.strip() + "\n")
     open(f"{OUT}/assets/main.js", "w").write(JS)
-    print(f"Built {len(pages)} pages into ./{OUT}/")
+    print(f"Built {len(pages)} pages in repo root")
 
 
 if __name__ == "__main__":
