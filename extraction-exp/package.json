@@ -1,0 +1,25 @@
+{
+  "name": "extraction-exp",
+  "version": "0.1.0",
+  "description": "Lossless PDF text extraction (LiteParse + pdf.js + recovery OCR) with a visual highlight viewer",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "extract": "node src/cli.js",
+    "test": "node test/run.js",
+    "postinstall": "node scripts/setup-tessdata.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@llamaindex/liteparse": "^2.18.0",
+    "@tesseract.js-data/eng": "^1.0.0",
+    "express": "^5.3.0",
+    "multer": "^2.5.0",
+    "pdfjs-dist": "^4.10.38",
+    "sharp": "^0.35.5",
+    "tesseract.js": "^5.1.1"
+  },
+  "type": "module"
+}

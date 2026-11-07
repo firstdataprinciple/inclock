@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Extraction Lab</title>
+<style>
+  :root{
+    --bg:#f6f7f9; --panel:#fff; --ink:#1b1f24; --muted:#667085; --line:#e4e7ec; --accent:#2f5bea;
+    --native:#2f5bea; --ocr:#12a150; --recovered:#8b3dff; --pdfjs:#0891b2; --review:#e8890c; --hit:#ffd400;
+  }
+  @media (prefers-color-scheme: dark){
+    :root{ --bg:#14171c; --panel:#1c2027; --ink:#e8ebf0; --muted:#98a2b3; --line:#2b313b; --accent:#6d8cff; }
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font:14px/1.45 system-ui,-apple-system,Segoe UI,Roboto,sans-serif;background:var(--bg);color:var(--ink);height:100vh;display:flex;flex-direction:column}
+  header{display:flex;flex-wrap:wrap;gap:10px;align-items:center;padding:10px 16px;background:var(--panel);border-bottom:1px solid var(--line)}
+  h1{font-size:16px;margin:0 8px 0 0}
+  button,.btn{font:inherit;border:1px solid var(--line);background:var(--panel);color:var(--ink);padding:6px 12px;border-radius:8px;cursor:pointer}
+  button.primary,.btn.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+  input[type=search]{font:inherit;padding:6px 10px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);min-width:200px}
+  .legend{display:flex;flex-wrap:wrap;gap:12px;align-items:center;margin-left:auto}
+  .legend label{display:flex;gap:5px;align-items:center;cursor:pointer;user-select:none}
+  .sw{width:12px;height:12px;border-radius:3px;display:inline-block;border:2px solid}
+  main{flex:1;display:flex;min-height:0}
+  #viewer{flex:1;overflow:auto;padding:16px;display:flex;flex-direction:column;align-items:center;gap:16px}
+  #side{width:380px;max-width:42vw;border-left:1px solid var(--line);background:var(--panel);display:flex;flex-direction:column;min-height:0}
+  .tabs{display:flex;border-bottom:1px solid var(--line)}
+  .tabs button{flex:1;border:0;border-radius:0;padding:10px;background:none;color:var(--muted)}
+  .tabs button.on{color:var(--accent);box-shadow:inset 0 -2px var(--accent)}
+  .tab{flex:1;overflow:auto;padding:12px;display:none}
+  .tab.on{display:block}
+  .page{position:relative;background:#fff;box-shadow:0 1px 6px rgba(0,0,0,.18)}
+  .page canvas{display:block}
+  .ov{position:absolute;inset:0}
+  .box{position:absolute;border:1.5px solid;border-radius:2px;cursor:pointer;background:transparent}
+  .box:hover{background:rgba(255,212,0,.35)}
+  .box.native{border-color:var(--native)} .box.ocr{border-color:var(--ocr)}
+  .box.recovered{border-color:var(--recovered);border-style:dashed} .box.pdfjs{border-color:var(--pdfjs)}
+  .box.review{box-shadow:0 0 0 2px var(--review)}
+  .box.hit{background:rgba(255,212,0,.55)!important;border-color:#b48a00}
+  .box.cur{outline:3px solid #ff3b30;background:rgba(255,212,0,.75)!important}
+  .imgreg{position:absolute;border:2px dotted #999;pointer-events:none}
+  .hide-native .box.native,.hide-ocr .box.ocr,.hide-recovered .box.recovered,.hide-pdfjs .box.pdfjs{display:none}
+  .only-review .box:not(.review){display:none}
+  .pnum{position:absolute;top:-20px;left:0;font-size:12px;color:var(--muted)}
+  #drop{margin:auto;text-align:center;color:var(--muted);border:2px dashed var(--line);border-radius:16px;padding:60px 80px}
+  #prog{height:4px;background:var(--line);display:none} #prog i{display:block;height:100%;width:0;background:var(--accent);transition:width .3s}
+  #msg{font-size:12px;color:var(--muted)}
+  table{border-collapse:collapse;width:100%} td,th{padding:5px 6px;border-bottom:1px solid var(--line);text-align:left;font-size:13px}
+  .chip{display:inline-block;padding:1px 7px;border-radius:99px;font-size:11px;color:#fff}
+  .row{padding:6px 8px;border-bottom:1px solid var(--line);cursor:pointer;display:flex;gap:8px;align-items:baseline}
+  .row:hover{background:var(--bg)}
+  .row small{color:var(--muted);margin-left:auto;white-space:nowrap}
+  pre{white-space:pre-wrap;font:12.5px/1.5 ui-monospace,Menlo,Consolas,monospace;margin:0}
+  .kpi{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-bottom:12px}
+  .kpi div{border:1px solid var(--line);border-radius:10px;padding:8px 10px} .kpi b{display:block;font-size:20px}
+  #tip{position:fixed;pointer-events:none;background:#111;color:#fff;padding:5px 8px;border-radius:6px;font-size:12px;display:none;z-index:9;max-width:320px}
+  @media (max-width:800px){ main{flex-direction:column} #side{width:auto;max-width:none;height:45vh;border-left:0;border-top:1px solid var(--line)} }
+</style>
+</head>
+<body>
+<header>
+  <h1>Extraction Lab</h1>
+  <label class="btn primary">Open PDF<input id="file" type="file" accept="application/pdf" hidden></label>
+  <input id="q" type="search" placeholder="Search all pages…" disabled>
+  <button id="prev" disabled>◀</button><button id="next" disabled>▶</button><span id="hits" style="color:var(--muted)"></span>
+  <span id="msg"></span>
+  <div class="legend">
+    <label><input type="checkbox" data-layer="native" checked><span class="sw" style="border-color:var(--native)"></span>Native</label>
+    <label><input type="checkbox" data-layer="ocr" checked><span class="sw" style="border-color:var(--ocr)"></span>OCR</label>
+    <label><input type="checkbox" data-layer="recovered" checked><span class="sw" style="border-color:var(--recovered);border-style:dashed"></span>Recovered</label>
+    <label><input type="checkbox" data-layer="pdfjs" checked><span class="sw" style="border-color:var(--pdfjs)"></span>pdf.js fill</label>
+    <label><input type="checkbox" id="onlyReview"><span class="sw" style="border-color:var(--review)"></span>Needs review only</label>
+  </div>
+</header>
+<div id="prog"><i></i></div>
+<main>
+  <div id="viewer"><div id="drop">Drop a PDF here or click <b>Open PDF</b><br><small>Charts and images are OCR’d and cross-checked so no word is silently dropped.</small></div></div>
+  <aside id="side">
+    <div class="tabs">
+      <button class="on" data-tab="words">Words</button><button data-tab="cov">Coverage</button><button data-tab="text">Full text</button>
+    </div>
+    <div class="tab on" id="t-words"></div>
+    <div class="tab" id="t-cov"></div>
+    <div class="tab" id="t-text"></div>
+  </aside>
+</main>
+<div id="tip"></div>
+<script type="module" src="/app.js"></script>
+</body>
+</html>
