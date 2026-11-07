@@ -7,7 +7,7 @@
 <style>
   :root{
     --bg:#f6f7f9; --panel:#fff; --ink:#1b1f24; --muted:#667085; --line:#e4e7ec; --accent:#2f5bea;
-    --native:#2f5bea; --ocr:#12a150; --recovered:#8b3dff; --pdfjs:#0891b2; --review:#e8890c; --hit:#ffd400;
+    --native:#2f5bea; --ocr:#12a150; --recovered:#8b3dff; --pymupdf:#0891b2; --review:#e8890c; --hit:#ffd400;
   }
   @media (prefers-color-scheme: dark){
     :root{ --bg:#14171c; --panel:#1c2027; --ink:#e8ebf0; --muted:#98a2b3; --line:#2b313b; --accent:#6d8cff; }
@@ -36,12 +36,12 @@
   .box{position:absolute;border:1.5px solid;border-radius:2px;cursor:pointer;background:transparent}
   .box:hover{background:rgba(255,212,0,.35)}
   .box.native{border-color:var(--native)} .box.ocr{border-color:var(--ocr)}
-  .box.recovered{border-color:var(--recovered);border-style:dashed} .box.pdfjs{border-color:var(--pdfjs)}
+  .box.recovered{border-color:var(--recovered);border-style:dashed} .box.pymupdf{border-color:var(--pymupdf)}
   .box.review{box-shadow:0 0 0 2px var(--review)}
   .box.hit{background:rgba(255,212,0,.55)!important;border-color:#b48a00}
   .box.cur{outline:3px solid #ff3b30;background:rgba(255,212,0,.75)!important}
   .imgreg{position:absolute;border:2px dotted #999;pointer-events:none}
-  .hide-native .box.native,.hide-ocr .box.ocr,.hide-recovered .box.recovered,.hide-pdfjs .box.pdfjs{display:none}
+  .hide-native .box.native,.hide-ocr .box.ocr,.hide-recovered .box.recovered,.hide-pymupdf .box.pymupdf{display:none}
   .only-review .box:not(.review){display:none}
   .pnum{position:absolute;top:-20px;left:0;font-size:12px;color:var(--muted)}
   #drop{margin:auto;text-align:center;color:var(--muted);border:2px dashed var(--line);border-radius:16px;padding:60px 80px}
@@ -70,7 +70,7 @@
     <label><input type="checkbox" data-layer="native" checked><span class="sw" style="border-color:var(--native)"></span>Native</label>
     <label><input type="checkbox" data-layer="ocr" checked><span class="sw" style="border-color:var(--ocr)"></span>OCR</label>
     <label><input type="checkbox" data-layer="recovered" checked><span class="sw" style="border-color:var(--recovered);border-style:dashed"></span>Recovered</label>
-    <label><input type="checkbox" data-layer="pdfjs" checked><span class="sw" style="border-color:var(--pdfjs)"></span>pdf.js fill</label>
+    <label><input type="checkbox" data-layer="pymupdf" checked><span class="sw" style="border-color:var(--pymupdf)"></span>PyMuPDF fill</label>
     <label><input type="checkbox" id="onlyReview"><span class="sw" style="border-color:var(--review)"></span>Needs review only</label>
   </div>
 </header>

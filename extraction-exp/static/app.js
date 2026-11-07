@@ -1,11 +1,8 @@
-import * as pdfjs from '/vendor/pdfjs/pdf.mjs';
-pdfjs.GlobalWorkerOptions.workerSrc = '/vendor/pdfjs/pdf.worker.mjs';
-
 const $ = (s) => document.querySelector(s);
 const el = (tag, cls, html) => { const e = document.createElement(tag); if (cls) e.className = cls; if (html != null) e.innerHTML = html; return e; };
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
-const COLORS = { native: 'var(--native)', ocr: 'var(--ocr)', recovered: 'var(--recovered)', pdfjs: 'var(--pdfjs)' };
-const LABEL = { native: 'native', ocr: 'OCR', recovered: 'recovered', pdfjs: 'pdf.js fill' };
+const COLORS = { native: 'var(--native)', ocr: 'var(--ocr)', recovered: 'var(--recovered)', pymupdf: 'var(--pymupdf)' };
+const LABEL = { native: 'native', ocr: 'OCR', recovered: 'recovered', pymupdf: 'PyMuPDF fill' };
 
 let data = null, jobId = null, boxes = new Map(); // item id -> {el, item, page}
 let hits = [], cur = -1;
@@ -32,7 +29,7 @@ async function run(file) {
     await new Promise((r) => setTimeout(r, 700));
   }
   $('#prog').style.display = 'none';
-  $('#msg').textContent = `Done in ${(data.elapsedMs / 1000).toFixed(1)}s`;
+  $('#msg').textContent = `Done in ${(data.elapsedMs / 1000).toFixed(1)}s` + (data.warnings?.length ? ' — ⚠ ' + data.warnings.join(' ') : '');
   await render();
 }
 function fail(m) { $('#msg').textContent = 'Error: ' + m; $('#prog').style.display = 'none'; }
@@ -40,20 +37,17 @@ function fail(m) { $('#msg').textContent = 'Error: ' + m; $('#prog').style.displ
 // ---- viewer ---------------------------------------------------------------
 async function render() {
   viewer.innerHTML = ''; boxes = new Map();
-  const doc = await pdfjs.getDocument('/api/pdf/' + jobId).promise;
   const scale = Math.min(1.6, Math.max(0.8, (viewer.clientWidth - 48) / data.pages[0].width));
   for (const pg of data.pages) {
-    const page = await doc.getPage(pg.pageNum);
-    const vp = page.getViewport({ scale });
     const wrap = el('div', 'page'); wrap.id = 'pg' + pg.pageNum;
-    wrap.style.width = vp.width + 'px'; wrap.style.height = vp.height + 'px';
+    wrap.style.width = pg.width * scale + 'px'; wrap.style.height = pg.height * scale + 'px';
     wrap.append(el('div', 'pnum', 'Page ' + pg.pageNum));
-    const c = el('canvas'); const dpr = window.devicePixelRatio || 1;
-    c.width = vp.width * dpr; c.height = vp.height * dpr; c.style.width = vp.width + 'px'; c.style.height = vp.height + 'px';
-    wrap.append(c);
+    const img = el('img'); img.loading = 'lazy'; img.alt = 'Page ' + pg.pageNum;
+    img.style.cssText = 'display:block;width:100%;height:100%';
+    img.src = `/api/page/${jobId}/${pg.pageNum}.png?scale=${(scale * (window.devicePixelRatio || 1)).toFixed(2)}`;
+    wrap.append(img);
     const ov = el('div', 'ov'); wrap.append(ov);
-    // scale: viewer px per PDF point (viewport at scale s of a 72dpi page)
-    const k = vp.width / pg.width;
+    const k = scale; // viewer px per PDF point
     for (const r of pg.imageRegions) {
       const d = el('div', 'imgreg'); Object.assign(d.style, { left: r.x * k + 'px', top: r.y * k + 'px', width: r.w * k + 'px', height: r.h * k + 'px' });
       ov.append(d);
@@ -69,7 +63,6 @@ async function render() {
       ov.append(b); boxes.set(it.id, { el: b, item: it, page: pg.pageNum });
     }
     viewer.append(wrap);
-    page.render({ canvasContext: c.getContext('2d'), viewport: vp, transform: dpr !== 1 ? [dpr, 0, 0, dpr, 0, 0] : null });
   }
   buildSide(); $('#q').disabled = false; $('#prev').disabled = false; $('#next').disabled = false;
 }
@@ -78,6 +71,7 @@ function tip(e, it) {
   const t = $('#tip');
   let h = `<b>${esc(it.text)}</b><br>${LABEL[it.source]}${it.conf != null ? ` · conf ${(it.conf * 100).toFixed(0)}%` : ''}`;
   if (it.alts?.length) h += `<br>other readings: ${it.alts.map((a) => esc(a.text)).join(', ')}`;
+  if (it.confirmed) h += '<br>✓ two OCR engines agree';
   if (it.review) h += '<br>⚠ needs review';
   t.innerHTML = h; t.style.display = 'block'; t.style.left = e.clientX + 12 + 'px'; t.style.top = e.clientY + 14 + 'px';
 }
@@ -117,12 +111,12 @@ function buildSide() {
   const c = $('#t-cov');
   c.innerHTML = `<div class="kpi">
     <div><b>${tot.total}</b>words extracted</div>
-    <div><b>${tot.recoveredAdded + tot.pdfjsAdded}</b>added by recovery passes</div>
+    <div><b>${tot.recoveredAdded + tot.crossCheckAdded}</b>added by recovery passes</div>
     <div><b>${tot.flaggedForReview}</b>flagged for review</div>
     <div><b>${data.pages.reduce((a, p) => a + p.imageRegions.length, 0)}</b>image regions</div></div>
-    <p style="color:var(--muted)">Passes: LiteParse (native + OCR) → pdf.js cross-check → 300-DPI recovery OCR on pages and image crops. Dashed purple boxes were only found by recovery. Orange-ringed boxes are low-confidence or have competing readings — hover to see alternatives.</p>
-    <table><tr><th>Page</th><th>Words</th><th>+pdf.js</th><th>+Recovered</th><th>Review</th></tr>
-    ${data.pages.map((p) => `<tr><td><a href="#pg${p.pageNum}">${p.pageNum}</a></td><td>${p.stats.total}</td><td>${p.stats.pdfjsAdded}</td><td>${p.stats.recoveredAdded}</td><td>${p.stats.flaggedForReview}</td></tr>`).join('')}</table>
+    <p style="color:var(--muted)">Passes: LiteParse (native + Tesseract OCR) → PyMuPDF cross-check → 300-DPI RapidOCR recovery on pages and image crops → second look at weak words. Dashed purple boxes were only found by recovery. Orange-ringed boxes are low-confidence or have competing readings — hover to see alternatives.</p>
+    <table><tr><th>Page</th><th>Words</th><th>+PyMuPDF</th><th>+Recovered</th><th>Review</th></tr>
+    ${data.pages.map((p) => `<tr><td><a href="#pg${p.pageNum}">${p.pageNum}</a></td><td>${p.stats.total}</td><td>${p.stats.crossCheckAdded}</td><td>${p.stats.recoveredAdded}</td><td>${p.stats.flaggedForReview}</td></tr>`).join('')}</table>
     <h4>Image regions (dotted boxes)</h4>
     <table><tr><th>Page</th><th>Size</th><th>Words found</th></tr>
     ${data.pages.flatMap((p) => p.imageRegions.map((r) => `<tr><td>${p.pageNum}</td><td>${Math.round(r.w)}×${Math.round(r.h)}pt</td><td>${r.words === 0 ? '<b style="color:var(--review)">0 — check visually</b>' : r.words}</td></tr>`)).join('') || '<tr><td colspan=3>none</td></tr>'}</table>`;

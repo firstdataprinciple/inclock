@@ -1,0 +1,9 @@
+fastapi
+uvicorn[standard]
+python-multipart
+liteparse
+pymupdf
+rapidocr-onnxruntime
+pillow
+numpy
+pytest

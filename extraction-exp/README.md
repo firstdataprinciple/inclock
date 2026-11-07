@@ -1,39 +1,45 @@
 # extraction-exp
 
-Lossless PDF text extraction with a visual highlight viewer. Built for PDFs whose
-statistics and bar charts exist **only as images**.
+Lossless PDF text extraction (Python backend) with a visual highlight viewer. Built for
+PDFs whose statistics and bar charts exist **only as images**.
 
 ## Run
 
 ```bash
-npm install        # also unpacks the bundled OCR model (works offline)
-npm start          # http://localhost:3000
-npm test           # regression: every known word in test/sample.pdf must be found
-node src/cli.js file.pdf out.json   # headless extraction
+python -m venv .venv && . .venv/bin/activate
+pip install -r requirements.txt
+uvicorn app.server:app --port 3000      # open http://localhost:3000
+pytest -q                               # regression: every known word in tests/sample.pdf is found
+python -m app.cli file.pdf out.json     # headless extraction (prints text if no out file)
 ```
+
+First run: LiteParse downloads its Tesseract English data once (or set `TESSDATA_PATH` to a
+folder containing `eng.traineddata`). If that download is blocked, the app still works — it
+warns in the UI and relies on the RapidOCR passes below, whose models ship inside the wheel.
 
 ## How nothing gets lost
 
-| Pass | What it does |
-|------|--------------|
-| 1. LiteParse | Native PDF text + built-in OCR, with exact word boxes |
-| 2. pdf.js cross-check | Independent native extractor; any word LiteParse lacks is added (`pdf.js fill`) |
-| 3. Recovery OCR | 300-DPI render of every page **and** every embedded image (2x upscaled, normal + inverted); uncovered words are added (`recovered`) |
-| 4. Second look | Each low-confidence OCR word is re-read from a tight 3x crop (plain / thresholded / inverted); competing readings are kept as alternates |
+| Pass | Engine | What it does |
+|------|--------|--------------|
+| 1 | LiteParse | Native PDF text + built-in Tesseract OCR, with exact word boxes |
+| 2 | PyMuPDF | Independent native extractor; any word LiteParse lacks is added (`PyMuPDF fill`) |
+| 3 | RapidOCR | Second OCR engine on a 300-DPI render of every page **and** every embedded image (2x upscaled, normal + inverted); uncovered words are added (`recovered`) |
+| 4 | RapidOCR | Second look: each weak word is re-read from a tight 3x crop |
 
-Every word carries its source and confidence. Weak or contested words get an orange
-ring (**needs review**); hover to see alternate readings. The *Coverage* tab lists
-each image region with how many words were found in it (0 = check visually).
+Where Tesseract and RapidOCR agree a word is marked ✓ *confirmed*. Where they disagree both
+readings are kept (hover to see alternates) and the word gets an orange **needs review** ring.
+The *Coverage* tab lists each image region with how many words were found in it (0 = look at it).
 
-## Viewer
+## Layout
 
-- Click a box ⇄ list row, search across all pages (Enter / Shift+Enter to step)
-- Toggle layers (native / OCR / recovered / pdf.js fill) or show only needs-review
-- Export full text (.txt) or complete word/box data (.json)
+```
+app/pipeline.py   the four passes + merge          app/server.py   FastAPI (upload, jobs, page PNGs)
+app/cli.py        headless runner                  static/         viewer (plain HTML/JS, no build step)
+tests/            sample PDF + regression test
+```
 
-## Known limits (honest)
+## Known limits
 
-OCR is probabilistic: tiny, stylised or rotated chart labels can still be misread, so
-review-flagged words exist. Numbers encoded purely as bar *heights* (no label) are not
-text and cannot be extracted by OCR. A vision-model pass over chart regions is the
-natural next step for those.
+OCR is probabilistic: tiny, stylised or rotated chart labels can still be misread, hence the
+review flags. Values encoded only as bar *heights* (no printed label) are not text and cannot
+be extracted by OCR; a vision-model pass over chart regions is the natural next step for those.
